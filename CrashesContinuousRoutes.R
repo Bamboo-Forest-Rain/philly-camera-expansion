@@ -1,6 +1,9 @@
 library(tidyverse)
 library(sf)
 library(mapview)
+library(arrow)
+library(sfarrow)
+library(dplyr, warn.conflicts = FALSE)
 
 # Name: Yihong Hu
 # Date: Jan 9 2024
@@ -9,9 +12,9 @@ library(mapview)
 # and number of speeding-related crash each corridor experienced each year from 2018-2022.
 # The data analysis is meant to help in speed camera expansion selection in Philly
 
-# 1. Load and clean data:
+######################################################### 1. Load and clean data:
 ## Surface crashes that happened in Philly after 2017
-surface_crash <- st_read("CRASH_FLAG SURFACE_CRASH 2012-2022.geojson") |>
+surface_crash <- st_read_parquet("CRASH_FLAG SURFACE_CRASH 2012-2022.parquet") |> 
   filter(CRASH_YEAR > 2017)
 
 ## Select relevant columns
@@ -25,8 +28,8 @@ surface_crash <-
   surface_crash |>
   st_transform(crs = 2272)
 
-## Roadway data - cleaned zeros in front of the route number - recorded unconsistently
-roadway <- read.csv("ROADWAY_2012-2022_PHILADELPHIA.csv")
+## Roadway data - clean zeros in front of the route number - recorded inconsistently
+roadway <- read_parquet("ROADWAY_2012-2022_PHILADELPHIA.parquet")
 roadway$ROUTE <- sub("^0+", "", roadway$ROUTE)
 
 ## These crashes happened on where the cameras are present
@@ -39,7 +42,7 @@ ROOSEVELT_CRN <- c(ROOSEVELT_CRASH$CRN)
 #write.csv(ROOSEVELT_CRASH, "Crashes on Roosevelt with Camera Installation.csv")
 
 ## State Roadway Management Segment Data in Philadelphia
-RMSSEG <- st_read("RMSSEG_(State_Roads).geojson") |>
+RMSSEG <- st_read_parquet("RMSSEG_(State_Roads).parquet") |>
   filter(CTY_CODE == 67)
 
 ### Clean the data by removing zeros in front of route numbers
@@ -91,7 +94,7 @@ ROO_CRASH <-
 
 ROO_CRN_BUFFER <- c(ROO_CRASH$CRN)
 
-################################## 2. Join with crash data
+########################################################### 2. Join with crash data
 
 RMSSEG_crash <-
   st_join(surface_crash, RMSSEG_agg_geo_buffer, join = st_intersects, left = FALSE)
@@ -153,7 +156,7 @@ CRASH_AGG_ROUTE_TOP15 <- CRASH_AGG_ROUTE |>
 #st_write(CRASH_AGG_ROUTE_TOP15, "SpeedingCrashbyRouteTop15.geojson", append = T)  
 #write_csv(st_drop_geometry(CRASH_AGG_ROUTE_TOP15), "SpeedingCrashbyRouteTop15.csv")
 
-#################Find milage, but exclude parallel sections - eg. Roosevelt has four segments at the same section#########
+#################3. Find milage, but exclude parallel sections - eg. Roosevelt has four segments at the same section#########
 
 RMSSEG_NAME_melt$SEG_NO <- sub("^0+", "", RMSSEG_NAME_melt$SEG_NO)
 
@@ -186,7 +189,7 @@ CRASH_AGG_ROUTE_TOP15 <-
 #st_write(CRASH_AGG_ROUTE_TOP15, "SpeedingCrashbyRouteTop15_v3.geojson", append = T)  
 #write_csv(st_drop_geometry(CRASH_AGG_ROUTE_TOP15), "SpeedingCrashbyRouteTop15_3.csv")
 
-################# Adding some routes from PennDOT ####################################
+#################4. Adding some routes from PennDOT ####################################
 
 PennDOT_ROUTE <- c(73, 3010, 2014, 2008, 3015, 2001)
 
